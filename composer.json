@@ -1,0 +1,55 @@
+{
+    "name": "terabytesoft/db-pgsql",
+    "type": "library",
+    "description": "Yii DataBase PostgreSQL Extension",
+    "keywords": [
+        "yii",
+        "pgsql"
+    ],
+    "homepage": "http://www.yiiframework.com/",
+    "license": "BSD-3-Clause",
+    "support": {
+        "source": "https://github.com/yiisoft/db-pgsql",
+        "issues": "https://github.com/yiisoft/db-pgsql/issues",
+        "forum": "http://www.yiiframework.com/forum/",
+        "wiki": "http://www.yiiframework.com/wiki/",
+        "irc": "irc://irc.freenode.net/yii"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": {
+        "php": "^^8.0",
+        "ext-json": "*",
+        "ext-pdo": "*",
+        "yiisoft/arrays": "^2.0",
+        "yiisoft/db": "^3.0",
+        "yiisoft/json": "^1.0",
+        "yiisoft/strings": "^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5",
+        "roave/infection-static-analysis-plugin": "^1.7",
+        "vimeo/psalm": "^4.4",
+        "yiisoft/aliases": "^1.1|^2.0",
+        "yiisoft/cache": "^1.0",
+        "yiisoft/log": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Yiisoft\\Db\\Pgsql\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Yiisoft\\Db\\Pgsql\\Tests\\": "tests"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "3.0.x-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
