@@ -7,7 +7,6 @@ namespace Yiisoft\Db\Pgsql;
 use Generator;
 use JsonException;
 use PDO;
-use Yiisoft\Db\Constraint\Constraint;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidArgumentException;
 use Yiisoft\Db\Exception\InvalidConfigException;
@@ -21,6 +20,7 @@ use Yiisoft\Db\Query\Conditions\LikeCondition;
 use Yiisoft\Db\Query\Query;
 use Yiisoft\Db\Query\QueryBuilder as AbstractQueryBuilder;
 use Yiisoft\Db\Schema\ColumnSchemaBuilder;
+use Yiisoft\Db\Schema\Schema;
 use Yiisoft\Strings\NumericHelper;
 
 use function array_diff;
@@ -34,10 +34,9 @@ use function is_string;
 use function preg_match;
 use function preg_replace;
 use function reset;
-use function strpos;
 
 /**
- * The class QueryBuilder is the query builder for PostgreSQL databases.
+ * The class QueryBuilder is the query builder for PostgresSQL databases.
  */
 final class QueryBuilder extends AbstractQueryBuilder
 {
@@ -68,6 +67,8 @@ final class QueryBuilder extends AbstractQueryBuilder
 
     /**
      * @var array mapping from abstract column types (keys) to physical column types (values).
+     *
+     * @psalm-var array<string, string>
      */
     protected array $typeMap = [
         Schema::TYPE_PK => 'serial NOT NULL PRIMARY KEY',
@@ -175,11 +176,11 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function dropIndex(string $name, string $table): string
     {
-        if (strpos($table, '.') !== false && strpos($name, '.') === false) {
-            if (strpos($table, '{{') !== false) {
+        if (str_contains($table, '.') && !str_contains($name, '.')) {
+            if (str_contains($table, '{{')) {
                 $table = preg_replace('/{{(.*?)}}/', '\1', $table);
                 [$schema, $table] = explode('.', $table);
-                if (strpos($schema, '%') === false) {
+                if (!str_contains($schema, '%')) {
                     $name = $schema . '.' . $name;
                 } else {
                     $name = '{{' . $schema . '.' . $name . '}}';
@@ -217,7 +218,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      * @param mixed $value the value for the primary key of the next new row inserted. If this is not set, the next new
      * row's primary key will have a value 1.
      *
-     * @throws Exception|InvalidArgumentException|JsonException if the table does not exist or there is no sequence
+     * @throws Exception|InvalidArgumentException if the table does not exist or there is no sequence
      * associated with the table.
      *
      * @return string the SQL statement for resetting sequence.
@@ -236,7 +237,7 @@ final class QueryBuilder extends AbstractQueryBuilder
             if ($value === null) {
                 $pk = $table->getPrimaryKey();
                 $key = $this->getDb()->quoteColumnName(reset($pk));
-                $value = "(SELECT COALESCE(MAX({$key}),0) FROM {$tableName})+1";
+                $value = "(SELECT COALESCE(MAX($key),0) FROM $tableName)+1";
             } else {
                 $value = (int) $value;
             }
@@ -264,9 +265,8 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function checkIntegrity(string $schema = '', string $table = '', bool $check = true): string
     {
-        /** @psalm-var Connection $db */
+        /** @var ConnectionPDOPgsql */
         $db = $this->getDb();
-
         $enable = $check ? 'ENABLE' : 'DISABLE';
         $schema = $schema ?: $db->getSchema()->getDefaultSchema();
         $tableNames = [];
@@ -281,12 +281,16 @@ final class QueryBuilder extends AbstractQueryBuilder
         $command = '';
 
         foreach ($tableNames as $tableName) {
-            $tableName = $db->quoteTableName("{$schema}.{$tableName}");
+            $tableName = $db->quoteTableName("$schema.$tableName");
             $command .= "ALTER TABLE $tableName $enable TRIGGER ALL; ";
         }
 
         /** enable to have ability to alter several tables */
-        $db->getMasterPdo()->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
+        $pdo = $db->getSlavePdo();
+
+        if ($pdo !== null) {
+            $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
+        }
 
         return $command;
     }
@@ -314,7 +318,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      * @param ColumnSchemaBuilder|string $type the new column type. The {@see getColumnType()} method will be invoked to
      * convert abstract column type (if any) into the physical one. Anything that is not recognized as abstract type
      * will be kept in the generated SQL. For example, 'string' will be turned into 'varchar(255)', while
-     * 'string not null' will become 'varchar(255) not null'. You can also use PostgreSQL-specific syntax such as
+     * 'string not null' will become 'varchar(255) not null'. You can also use PostgresSQL-specific syntax such as
      * `SET NOT NULL`.
      *
      * @return string the SQL statement for changing the definition of a column.
@@ -329,7 +333,7 @@ final class QueryBuilder extends AbstractQueryBuilder
          * {@see http://www.postgresql.org/docs/9.1/static/sql-altertable.html}
          */
         if (preg_match('/^(DROP|SET|RESET|USING)\s+/i', (string) $type)) {
-            return "ALTER TABLE {$tableName} ALTER COLUMN {$columnName} {$type}";
+            return "ALTER TABLE $tableName ALTER COLUMN $columnName $type";
         }
 
         $type = 'TYPE ' . $this->getColumnType($type);
@@ -338,34 +342,34 @@ final class QueryBuilder extends AbstractQueryBuilder
 
         if (preg_match('/\s+DEFAULT\s+(["\']?\w*["\']?)/i', $type, $matches)) {
             $type = preg_replace('/\s+DEFAULT\s+(["\']?\w*["\']?)/i', '', $type);
-            $multiAlterStatement[] = "ALTER COLUMN {$columnName} SET DEFAULT {$matches[1]}";
+            $multiAlterStatement[] = "ALTER COLUMN $columnName SET DEFAULT $matches[1]";
         }
 
         $type = preg_replace('/\s+NOT\s+NULL/i', '', $type, -1, $count);
 
         if ($count) {
-            $multiAlterStatement[] = "ALTER COLUMN {$columnName} SET NOT NULL";
+            $multiAlterStatement[] = "ALTER COLUMN $columnName SET NOT NULL";
         } else {
             /** remove additional null if any */
             $type = preg_replace('/\s+NULL/i', '', $type, -1, $count);
             if ($count) {
-                $multiAlterStatement[] = "ALTER COLUMN {$columnName} DROP NOT NULL";
+                $multiAlterStatement[] = "ALTER COLUMN $columnName DROP NOT NULL";
             }
         }
 
         if (preg_match('/\s+CHECK\s+\((.+)\)/i', $type, $matches)) {
             $type = preg_replace('/\s+CHECK\s+\((.+)\)/i', '', $type);
-            $multiAlterStatement[] = "ADD CONSTRAINT {$constraintPrefix}_check CHECK ({$matches[1]})";
+            $multiAlterStatement[] = "ADD CONSTRAINT {$constraintPrefix}_check CHECK ($matches[1])";
         }
 
         $type = preg_replace('/\s+UNIQUE/i', '', $type, -1, $count);
 
         if ($count) {
-            $multiAlterStatement[] = "ADD UNIQUE ({$columnName})";
+            $multiAlterStatement[] = "ADD UNIQUE ($columnName)";
         }
 
         /** add what's left at the beginning */
-        array_unshift($multiAlterStatement, "ALTER COLUMN {$columnName} {$type}");
+        array_unshift($multiAlterStatement, "ALTER COLUMN $columnName $type");
 
         return 'ALTER TABLE ' . $tableName . ' ' . implode(', ', $multiAlterStatement);
     }
@@ -373,7 +377,7 @@ final class QueryBuilder extends AbstractQueryBuilder
     /**
      * Creates an INSERT SQL statement.
      *
-     * For example,.
+     * For example,
      *
      * ```php
      * $sql = $queryBuilder->insert('user', [
@@ -421,7 +425,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      * @param string $table the table that new rows will be inserted into/updated in.
      * @param array|Query $insertColumns the column data (name => value) to be inserted into the table or instance of
      * {@see Query} to perform `INSERT INTO ... SELECT` SQL statement.
-     * @param array|bool $updateColumns the column data (name => value) to be updated if they already exist.
+     * @param array|bool|Query $updateColumns the column data (name => value) to be updated if they already exist.
      * If `true` is passed, the column data will be updated to match the insert column data.
      * If `false` is passed, no update will be performed if the column data already exists.
      * @param array $params the binding parameters that will be generated by this method.
@@ -447,22 +451,26 @@ final class QueryBuilder extends AbstractQueryBuilder
     }
 
     /**
-     * {@see upsert()} implementation for PostgreSQL 9.5 or higher.
+     * {@see upsert()} implementation for PostgresSQL 9.5 or higher.
      *
      * @param string $table
      * @param array|Query $insertColumns
-     * @param array|bool $updateColumns
+     * @param bool|array|Query $updateColumns
      * @param array $params
      *
-     * @throws Exception|InvalidArgumentException|InvalidConfigException|JsonException|NotSupportedException
-     *
      * @return string
+     *@throws Exception|InvalidArgumentException|InvalidConfigException|JsonException|NotSupportedException
+     *
      */
-    private function newUpsert(string $table, $insertColumns, $updateColumns, array &$params = []): string
-    {
+    private function newUpsert(
+        string $table,
+        Query|array $insertColumns,
+        bool|array|Query $updateColumns,
+        array &$params = []
+    ): string {
         $insertSql = $this->insert($table, $insertColumns, $params);
 
-        /** @var array<array-key, mixed> $uniqueNames */
+        /** @var array $uniqueNames */
         [$uniqueNames, , $updateNames] = $this->prepareUpsertColumns($table, $insertColumns, $updateColumns);
 
         if (empty($uniqueNames)) {
@@ -487,7 +495,7 @@ final class QueryBuilder extends AbstractQueryBuilder
             }
         }
 
-        /** @var array<array-key, mixed> $updates */
+        /** @var array $updates */
         [$updates, $params] = $this->prepareUpdateSets($table, $updateColumns, $params);
 
         return $insertSql . ' ON CONFLICT (' . implode(', ', $uniqueNames) . ') DO UPDATE SET '
@@ -513,7 +521,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      * @param array $params the binding parameters that will be modified by this method so that they can be bound to the
      * DB command later.
      *
-     * @throws Exception|InvalidArgumentException|JsonException
+     * @throws Exception|InvalidArgumentException
      *
      * @return string the UPDATE SQL.
      */
@@ -530,9 +538,9 @@ final class QueryBuilder extends AbstractQueryBuilder
      * {@see Query} to perform INSERT INTO ... SELECT SQL statement. Passing of
      * {@see Query}.
      *
-     * @return mixed normalized columns.
+     * @return array|Query normalized columns.
      */
-    private function normalizeTableRowData(string $table, $columns)
+    private function normalizeTableRowData(string $table, Query|array $columns): Query|array
     {
         if ($columns instanceof Query) {
             return $columns;
@@ -574,8 +582,8 @@ final class QueryBuilder extends AbstractQueryBuilder
      * The method will properly escape the column names, and quote the values to be inserted.
      *
      * @param string $table the table that new rows will be inserted into.
-     * @param array<array-key, mixed> $columns the column names.
-     * @param array|Generator $rows the rows to be batch inserted into the table.
+     * @param array $columns the column names.
+     * @param array|Generator $rows the rows to be batched inserted into the table.
      * @param array $params the binding parameters. This parameter exists.
      *
      * @throws Exception|InvalidArgumentException|InvalidConfigException|NotSupportedException
@@ -601,7 +609,7 @@ final class QueryBuilder extends AbstractQueryBuilder
         $values = [];
 
         /**
-         * @var array<array-key, mixed> $row
+         * @var array $row
          */
         foreach ($rows as $row) {
             $vs = [];

@@ -42,7 +42,7 @@ final class ColumnSchema extends AbstractColumnSchema
      * @return mixed converted value. This may also be an array containing the value as the first element and the PDO
      * type as the second element.
      */
-    public function dbTypecast($value)
+    public function dbTypecast($value): mixed
     {
         if ($value === null) {
             return null;
@@ -74,7 +74,7 @@ final class ColumnSchema extends AbstractColumnSchema
      *
      * @return mixed converted value
      */
-    public function phpTypecast($value)
+    public function phpTypecast($value): mixed
     {
         if ($this->dimension > 0) {
             if (!is_array($value)) {
@@ -98,13 +98,13 @@ final class ColumnSchema extends AbstractColumnSchema
     /**
      * Casts $value after retrieving from the DBMS to PHP representation.
      *
-     * @param int|string|null $value
+     * @param mixed $value
      *
      * @throws JsonException
      *
      * @return mixed
      */
-    protected function phpTypecastValue($value)
+    protected function phpTypecastValue(mixed $value): mixed
     {
         if ($value === null) {
             return null;
@@ -114,16 +114,11 @@ final class ColumnSchema extends AbstractColumnSchema
             case Schema::TYPE_BOOLEAN:
                 $value = is_string($value) ? strtolower($value) : $value;
 
-                switch ($value) {
-                    case 't':
-                    case 'true':
-                        return true;
-                    case 'f':
-                    case 'false':
-                        return false;
-                }
-
-                return (bool) $value;
+                return match ($value) {
+                    't', 'true' => true,
+                    'f', 'false' => false,
+                    default => (bool)$value,
+                };
             case Schema::TYPE_JSON:
                 return json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
         }
@@ -150,7 +145,7 @@ final class ColumnSchema extends AbstractColumnSchema
     }
 
     /**
-     * @return string name of associated sequence if column is auto-incremental.
+     * @return string|null name of associated sequence if column is auto-incremental.
      */
     public function getSequenceName(): ?string
     {

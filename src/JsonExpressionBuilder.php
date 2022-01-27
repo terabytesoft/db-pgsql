@@ -68,6 +68,6 @@ final class JsonExpressionBuilder implements ExpressionBuilderInterface
             return '';
         }
 
-        return '::' . (string) $expression->getType();
+        return '::' . (string)$expression->getType();
     }
 }

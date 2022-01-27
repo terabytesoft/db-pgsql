@@ -126,7 +126,7 @@ final class ArrayExpressionBuilder implements ExpressionBuilderInterface
      *
      * @return ArrayExpression
      */
-    private function unnestArrayExpression(ArrayExpression $expression, $value): ArrayExpression
+    private function unnestArrayExpression(ArrayExpression $expression, mixed $value): ArrayExpression
     {
         $expressionClass = get_class($expression);
 
@@ -147,9 +147,7 @@ final class ArrayExpressionBuilder implements ExpressionBuilderInterface
             return '';
         }
 
-        /** @var int $dimension */
         $dimension = $expression->getDimension();
-
         $result = '::' . $type;
         $result .= str_repeat('[]', $dimension);
 
@@ -173,12 +171,14 @@ final class ArrayExpressionBuilder implements ExpressionBuilderInterface
      * Casts $value to use in $expression.
      *
      * @param ArrayExpression $expression
-     * @param ExpressionInterface|int $value
+     * @param int|ExpressionInterface|null $value
      *
-     * @return ExpressionInterface|int
+     * @return array|bool|int|string|JsonExpression|ExpressionInterface|null
      */
-    protected function typecastValue(ArrayExpression $expression, $value)
-    {
+    protected function typecastValue(
+        ArrayExpression $expression,
+        array|bool|int|string|ExpressionInterface|null $value
+    ): array|bool|int|string|JsonExpression|ExpressionInterface|null {
         if ($value instanceof ExpressionInterface) {
             return $value;
         }
