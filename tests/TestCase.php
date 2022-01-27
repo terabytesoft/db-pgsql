@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace Yiisoft\Db\Pgsql\Tests;
 
 use PHPUnit\Framework\TestCase as AbstractTestCase;
-use Yiisoft\Db\Pgsql\Connection;
+use Yiisoft\Db\Driver\PDODriver;
+use Yiisoft\Db\Pgsql\ConnectionPDOPgsql;
 use Yiisoft\Db\TestUtility\TestTrait;
 
 class TestCase extends AbstractTestCase
 {
     use TestTrait;
 
-    protected const DB_CONNECTION_CLASS = \Yiisoft\Db\Pgsql\Connection::class;
+    protected const DB_CONNECTION_CLASS = \Yiisoft\Db\Pgsql\ConnectionPDOPgsql::class;
     protected const DB_DRIVERNAME = 'pgsql';
+    protected const DB_DRIVER_CLASS = PDODriver::class;
     protected const DB_DSN = 'pgsql:host=127.0.0.1;dbname=yiitest;port=5432';
     protected const DB_FIXTURES_PATH = __DIR__ . '/Fixture/postgres.sql';
     protected const DB_USERNAME = 'root';
@@ -23,12 +25,13 @@ class TestCase extends AbstractTestCase
     protected array $expectedSchemas = ['public'];
     protected string $likeEscapeCharSql = '';
     protected array $likeParameterReplacements = [];
-    protected Connection $connection;
+    protected ConnectionPDOPgsql $connection;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->connection = $this->createConnection(self::DB_DSN);
+        $PDODriver = new PDODriver(self::DB_DSN, self::DB_USERNAME, self::DB_PASSWORD);
+        $this->connection = $this->createConnection($PDODriver);
     }
 
     protected function tearDown(): void

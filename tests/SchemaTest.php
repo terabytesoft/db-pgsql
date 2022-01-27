@@ -392,7 +392,7 @@ final class SchemaTest extends TestCase
             $this->markTestSkipped('PostgreSQL < 12.0 does not support GENERATED AS IDENTITY columns.');
         }
 
-        $this->prepareDatabase(self::DB_DSN, __DIR__ . '/Fixture/postgres12.sql');
+        $this->prepareDatabase(__DIR__ . '/Fixture/postgres12.sql');
 
         $table = $this->getConnection()->getSchema()->getTableSchema('generated');
 
@@ -408,7 +408,7 @@ final class SchemaTest extends TestCase
             $this->markTestSkipped('PostgreSQL < 10.0 does not support PARTITION BY clause.');
         }
 
-        $this->prepareDatabase(self::DB_DSN, __DIR__ . '/Fixture/postgres10.sql');
+        $this->prepareDatabase(__DIR__ . '/Fixture/postgres10.sql');
 
         $this->assertNotNull($this->getConnection()->getSchema()->getTableSchema('partitioned'));
     }
@@ -486,7 +486,7 @@ final class SchemaTest extends TestCase
         $connection = $this->getConnection(true);
 
         foreach ($pdoAttributes as $name => $value) {
-            $connection->getPDO()->setAttribute($name, $value);
+            $connection->getDriver()->getPDO()->setAttribute($name, $value);
         }
 
         $schema = $connection->getSchema();
@@ -519,7 +519,7 @@ final class SchemaTest extends TestCase
         $db = $this->getConnection(true);
 
         foreach ($pdoAttributes as $name => $value) {
-            $db->getPDO()->setAttribute($name, $value);
+            $db->getDriver()->getPDO()->setAttribute($name, $value);
         }
 
         $schema = $db->getSchema();
