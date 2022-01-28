@@ -530,10 +530,13 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
 
         /** @var array{array{tableName: string, columns: array}} $constraints */
         $constraints = [];
-        $slavePdo = $this->getDb()->getSlavePdo();
+
+        /** @var ConnectionPDOPgsql */
+        $db = $this->getDb();
+        $slavePdo = $db->getSlavePdo();
 
         /** @var FindConstraintArray $constraint */
-        foreach ($this->getDb()->createCommand($sql)->queryAll() as $constraint) {
+        foreach ($db->createCommand($sql)->queryAll() as $constraint) {
             if ($slavePdo !== null && $slavePdo->getAttribute(PDO::ATTR_CASE) === PDO::CASE_UPPER) {
                 $constraint = array_change_key_case($constraint, CASE_LOWER);
             }
@@ -622,7 +625,9 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
     public function findUniqueIndexes(TableSchema $table): array
     {
         $uniqueIndexes = [];
-        $slavePdo = $this->getDb()->getSlavePdo();
+        /** @var ConnectionPDOPgsql */
+        $db = $this->getDb();
+        $slavePdo = $db->getSlavePdo();
 
         /** @var array{indexname: string, columnname: string} $row */
         foreach ($this->getUniqueIndexInformation($table) as $row) {
@@ -662,13 +667,15 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         $schemaName = $table->getSchemaName();
         $orIdentity = '';
 
-        $tableName = $this->getDb()->quoteValue($tableName);
+        /** @var ConnectionPDOPgsql */
+        $db = $this->getDb();
+        $tableName = $db->quoteValue($tableName);
 
         if ($schemaName !== null) {
-            $schemaName = $this->getDb()->quoteValue($schemaName);
+            $schemaName = $db->quoteValue($schemaName);
         }
 
-        if (version_compare($this->getDb()->getServerVersion(), '12.0', '>=')) {
+        if (version_compare($db->getServerVersion(), '12.0', '>=')) {
             $orIdentity = 'OR a.attidentity != \'\'';
         }
 
@@ -746,8 +753,8 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         SQL;
 
         /** @var array columns */
-        $columns = $this->getDb()->createCommand($sql)->queryAll();
-        $slavePdo = $this->getDb()->getSlavePdo();
+        $columns = $db->createCommand($sql)->queryAll();
+        $slavePdo = $db->getSlavePdo();
 
         if (empty($columns)) {
             return false;
