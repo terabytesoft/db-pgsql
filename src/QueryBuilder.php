@@ -7,6 +7,7 @@ namespace Yiisoft\Db\Pgsql;
 use Generator;
 use JsonException;
 use PDO;
+use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidArgumentException;
 use Yiisoft\Db\Exception\InvalidConfigException;
@@ -95,6 +96,11 @@ final class QueryBuilder extends AbstractQueryBuilder
         Schema::TYPE_JSON => 'jsonb',
     ];
 
+    public function __construct(private ConnectionInterface $db)
+    {
+        parent::__construct($db);
+    }
+
     /**
      * Contains array of default condition classes. Extend this method, if you want to change default condition classes
      * for the query builder.
@@ -160,8 +166,8 @@ final class QueryBuilder extends AbstractQueryBuilder
         }
 
         return ($unique ? 'CREATE UNIQUE INDEX ' : 'CREATE INDEX ')
-            . $this->getDb()->quoteTableName($name) . ' ON '
-            . $this->getDb()->quoteTableName($table)
+            . $this->db->quoteTableName($name) . ' ON '
+            . $this->db->quoteTableName($table)
             . ($index !== false ? " USING $index" : '')
             . ' (' . $this->buildColumns($columns) . ')';
     }
@@ -191,7 +197,7 @@ final class QueryBuilder extends AbstractQueryBuilder
             }
         }
 
-        return 'DROP INDEX ' . $this->getDb()->quoteTableName($name);
+        return 'DROP INDEX ' . $this->db->quoteTableName($name);
     }
 
     /**
@@ -204,8 +210,8 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function renameTable(string $oldName, string $newName): string
     {
-        return 'ALTER TABLE ' . $this->getDb()->quoteTableName($oldName) . ' RENAME TO '
-            . $this->getDb()->quoteTableName($newName);
+        return 'ALTER TABLE ' . $this->db->quoteTableName($oldName) . ' RENAME TO '
+            . $this->db->quoteTableName($newName);
     }
 
     /**
@@ -225,18 +231,18 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function resetSequence(string $tableName, $value = null): string
     {
-        $table = $this->getDb()->getTableSchema($tableName);
+        $table = $this->db->getTableSchema($tableName);
 
         if ($table !== null && ($sequence = $table->getSequenceName()) !== null) {
             /**
              * {@see http://www.postgresql.org/docs/8.1/static/functions-sequence.html}
              */
-            $sequence = $this->getDb()->quoteTableName($sequence);
-            $tableName = $this->getDb()->quoteTableName($tableName);
+            $sequence = $this->db->quoteTableName($sequence);
+            $tableName = $this->db->quoteTableName($tableName);
 
             if ($value === null) {
                 $pk = $table->getPrimaryKey();
-                $key = $this->getDb()->quoteColumnName(reset($pk));
+                $key = $this->db->quoteColumnName(reset($pk));
                 $value = "(SELECT COALESCE(MAX($key),0) FROM $tableName)+1";
             } else {
                 $value = (int) $value;
@@ -266,7 +272,7 @@ final class QueryBuilder extends AbstractQueryBuilder
     public function checkIntegrity(string $schema = '', string $table = '', bool $check = true): string
     {
         /** @var ConnectionPDOPgsql */
-        $db = $this->getDb();
+        $db = $this->db;
         $enable = $check ? 'ENABLE' : 'DISABLE';
         $schema = $schema ?: $db->getSchema()->getDefaultSchema();
         $tableNames = [];
@@ -306,7 +312,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function truncateTable(string $table): string
     {
-        return 'TRUNCATE TABLE ' . $this->getDb()->quoteTableName($table) . ' RESTART IDENTITY';
+        return 'TRUNCATE TABLE ' . $this->db->quoteTableName($table) . ' RESTART IDENTITY';
     }
 
     /**
@@ -325,8 +331,8 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function alterColumn(string $table, string $column, $type): string
     {
-        $columnName = $this->getDb()->quoteColumnName($column);
-        $tableName = $this->getDb()->quoteTableName($table);
+        $columnName = $this->db->quoteColumnName($column);
+        $tableName = $this->db->quoteTableName($table);
 
         /**
          * {@see https://github.com/yiisoft/yii2/issues/4492}
@@ -491,7 +497,7 @@ final class QueryBuilder extends AbstractQueryBuilder
 
             /** @var string $name */
             foreach ($updateNames as $name) {
-                $updateColumns[$name] = new Expression('EXCLUDED.' . $this->getDb()->quoteColumnName($name));
+                $updateColumns[$name] = new Expression('EXCLUDED.' . $this->db->quoteColumnName($name));
             }
         }
 
@@ -546,7 +552,7 @@ final class QueryBuilder extends AbstractQueryBuilder
             return $columns;
         }
 
-        if (($tableSchema = $this->getDb()->getSchema()->getTableSchema($table)) !== null) {
+        if (($tableSchema = $this->db->getSchema()->getTableSchema($table)) !== null) {
             $columnSchemas = $tableSchema->getColumns();
             /** @var mixed $value */
             foreach ($columns as $name => $value) {
@@ -600,7 +606,7 @@ final class QueryBuilder extends AbstractQueryBuilder
          * @var array<array-key, object> $columnSchemas
          */
         $columnSchemas = [];
-        $schema = $this->getDb()->getSchema();
+        $schema = $this->db->getSchema();
 
         if (($tableSchema = $schema->getTableSchema($table)) !== null) {
             $columnSchemas = $tableSchema->getColumns();

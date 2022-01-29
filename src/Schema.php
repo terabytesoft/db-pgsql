@@ -8,6 +8,8 @@ use JsonException;
 use PDO;
 use Throwable;
 use Yiisoft\Arrays\ArrayHelper;
+use Yiisoft\Db\Cache\SchemaCache;
+use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Constraint\CheckConstraint;
 use Yiisoft\Db\Constraint\Constraint;
 use Yiisoft\Db\Constraint\ConstraintFinderInterface;
@@ -161,6 +163,11 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         'xml' => self::TYPE_STRING,
     ];
 
+    public function __construct(private ConnectionPDOInterface $db, SchemaCache $schemaCache)
+    {
+        parent::__construct($db, $schemaCache);
+    }
+
     /**
      * @var string|null the default schema used for the current session.
      */
@@ -225,7 +232,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         ORDER BY "ns"."nspname" ASC
         SQL;
 
-        return $this->getDb()->createCommand($sql)->queryColumn();
+        return $this->db->createCommand($sql)->queryColumn();
     }
 
     /**
@@ -254,7 +261,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         ORDER BY c.relname
         SQL;
 
-        return $this->getDb()->createCommand($sql, [':schemaName' => $schema])->queryColumn();
+        return $this->db->createCommand($sql, [':schemaName' => $schema])->queryColumn();
     }
 
     /**
@@ -344,7 +351,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
 
         $resolvedName = $this->resolveTableName($tableName);
 
-        $indexes = $this->getDb()->createCommand($sql, [
+        $indexes = $this->db->createCommand($sql, [
             ':schemaName' => $resolvedName->getSchemaName(),
             ':tableName' => $resolvedName->getName(),
         ])->queryAll();
@@ -432,7 +439,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
      */
     public function createQueryBuilder(): QueryBuilder
     {
-        return new QueryBuilder($this->getDb());
+        return new QueryBuilder($this->db);
     }
 
     /**
@@ -476,7 +483,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         ORDER BY c.relname
         SQL;
 
-        return $this->getDb()->createCommand($sql, [':schemaName' => $schema])->queryColumn();
+        return $this->db->createCommand($sql, [':schemaName' => $schema])->queryColumn();
     }
 
     /**
@@ -531,12 +538,10 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         /** @var array{array{tableName: string, columns: array}} $constraints */
         $constraints = [];
 
-        /** @var ConnectionPDOPgsql */
-        $db = $this->getDb();
-        $slavePdo = $db->getSlavePdo();
+        $slavePdo = $this->db->getSlavePdo();
 
         /** @var FindConstraintArray $constraint */
-        foreach ($db->createCommand($sql)->queryAll() as $constraint) {
+        foreach ($this->db->createCommand($sql)->queryAll() as $constraint) {
             if ($slavePdo !== null && $slavePdo->getAttribute(PDO::ATTR_CASE) === PDO::CASE_UPPER) {
                 $constraint = array_change_key_case($constraint, CASE_LOWER);
             }
@@ -598,7 +603,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         ORDER BY i.relname, k
         SQL;
 
-        return $this->getDb()->createCommand($sql, [
+        return $this->db->createCommand($sql, [
             ':schemaName' => $table->getSchemaName(),
             ':tableName' => $table->getName(),
         ])->queryAll();
@@ -625,9 +630,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
     public function findUniqueIndexes(TableSchema $table): array
     {
         $uniqueIndexes = [];
-        /** @var ConnectionPDOPgsql */
-        $db = $this->getDb();
-        $slavePdo = $db->getSlavePdo();
+        $slavePdo = $this->db->getSlavePdo();
 
         /** @var array{indexname: string, columnname: string} $row */
         foreach ($this->getUniqueIndexInformation($table) as $row) {
@@ -667,15 +670,13 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         $schemaName = $table->getSchemaName();
         $orIdentity = '';
 
-        /** @var ConnectionPDOPgsql */
-        $db = $this->getDb();
-        $tableName = $db->quoteValue($tableName);
+        $tableName = $this->db->quoteValue($tableName);
 
         if ($schemaName !== null) {
-            $schemaName = $db->quoteValue($schemaName);
+            $schemaName = $this->db->quoteValue($schemaName);
         }
 
-        if (version_compare($db->getServerVersion(), '12.0', '>=')) {
+        if (version_compare($this->db->getServerVersion(), '12.0', '>=')) {
             $orIdentity = 'OR a.attidentity != \'\'';
         }
 
@@ -753,8 +754,8 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         SQL;
 
         /** @var array columns */
-        $columns = $db->createCommand($sql)->queryAll();
-        $slavePdo = $db->getSlavePdo();
+        $columns = $this->db->createCommand($sql)->queryAll();
+        $slavePdo = $this->db->getSlavePdo();
 
         if (empty($columns)) {
             return false;
@@ -914,9 +915,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
     {
         $params = [];
         $returnColumns = [];
-        /** @var ConnectionPDOPgsql */
-        $db = $this->getDb();
-        $sql = $db->getQueryBuilder()->insert($table, $columns, $params);
+        $sql = $this->db->getQueryBuilder()->insert($table, $columns, $params);
         $tableSchema = $this->getTableSchema($table);
 
         if ($tableSchema !== null) {
@@ -932,7 +931,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
             $sql .= ' RETURNING ' . implode(', ', $returning);
         }
 
-        $command = $db->createCommand($sql, $params);
+        $command = $this->db->createCommand($sql, $params);
         $command->prepare(false);
         $result = $command->queryOne();
 
@@ -999,7 +998,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
 
         $resolvedName = $this->resolveTableName($tableName);
 
-        $constraints = $this->getDb()->createCommand($sql, [
+        $constraints = $this->db->createCommand($sql, [
             ':schemaName' => $resolvedName->getSchemaName(),
             ':tableName' => $resolvedName->getName(),
         ])->queryAll();
