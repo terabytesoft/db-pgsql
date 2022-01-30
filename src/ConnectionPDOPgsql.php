@@ -16,6 +16,7 @@ use Yiisoft\Db\Driver\PDODriver;
 use Yiisoft\Db\Driver\PDOInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
+use Yiisoft\Db\Schema\Quoter;
 
 /**
  * The class Connection represents a connection to a database via [PDO](https://secure.php.net/manual/en/book.pdo.php).
@@ -23,6 +24,9 @@ use Yiisoft\Db\Exception\InvalidConfigException;
 final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterface
 {
     private ?PDO $pdo = null;
+    private ?QueryBuilder $queryBuilder = null;
+    private ?Quoter $quoter = null;
+    private ?Schema $schema = null;
 
     public function __construct(
         private PDODriver $driver,
@@ -70,7 +74,7 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
     public function createCommand(?string $sql = null, array $params = []): Command
     {
         if ($sql !== null) {
-            $sql = $this->quoteSql($sql);
+            $sql = $this->getQuoter()->quoteSql($sql);
         }
 
         $command = new Command($this, $this->queryCache, $sql);
@@ -137,14 +141,36 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
         return $this->pdo;
     }
 
+    public function getQueryBuilder(): QueryBuilder
+    {
+        if ($this->queryBuilder === null) {
+            $this->queryBuilder = new QueryBuilder($this);
+        }
+
+        return $this->queryBuilder;
+    }
+
+    public function getQuoter(): Quoter
+    {
+        if ($this->quoter === null) {
+            $this->quoter = new Quoter('"', '"', $this->driver, $this->getTablePrefix());
+        }
+
+        return $this->quoter;
+    }
+
     public function getSchema(): Schema
     {
-        return new Schema($this, $this->schemaCache);
+        if ($this->schema === null) {
+            $this->schema = new Schema($this, $this->schemaCache);
+        }
+
+        return $this->schema;
     }
 
     public function getSlavePdo(bool $fallbackToMaster = true): ?PDO
     {
-        /** @var ConnectionPDOPgsql|null $db */
+        /** @var ConnectionPDOPgssql|null $db */
         $db = $this->getSlave(false);
 
         if ($db === null) {
@@ -209,7 +235,10 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
      */
     protected function initConnection(): void
     {
-        $this->pdo = $this->driver->createConnection();
+        if ($this->pdo === null) {
+            $this->pdo = $this->driver->createConnection();
+        }
+
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
         if ($this->getEmulatePrepare() !== null && constant('PDO::ATTR_EMULATE_PREPARES')) {

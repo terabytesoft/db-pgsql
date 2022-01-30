@@ -98,7 +98,7 @@ final class QueryBuilder extends AbstractQueryBuilder
 
     public function __construct(private ConnectionInterface $db)
     {
-        parent::__construct($db);
+        parent::__construct($db->getQuoter(), $db->getSchema());
     }
 
     /**
@@ -166,8 +166,8 @@ final class QueryBuilder extends AbstractQueryBuilder
         }
 
         return ($unique ? 'CREATE UNIQUE INDEX ' : 'CREATE INDEX ')
-            . $this->db->quoteTableName($name) . ' ON '
-            . $this->db->quoteTableName($table)
+            . $this->db->getQuoter()->quoteTableName($name) . ' ON '
+            . $this->db->getQuoter()->quoteTableName($table)
             . ($index !== false ? " USING $index" : '')
             . ' (' . $this->buildColumns($columns) . ')';
     }
@@ -197,7 +197,7 @@ final class QueryBuilder extends AbstractQueryBuilder
             }
         }
 
-        return 'DROP INDEX ' . $this->db->quoteTableName($name);
+        return 'DROP INDEX ' . $this->db->getQuoter()->quoteTableName($name);
     }
 
     /**
@@ -210,8 +210,8 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function renameTable(string $oldName, string $newName): string
     {
-        return 'ALTER TABLE ' . $this->db->quoteTableName($oldName) . ' RENAME TO '
-            . $this->db->quoteTableName($newName);
+        return 'ALTER TABLE ' . $this->db->getQuoter()->quoteTableName($oldName) . ' RENAME TO '
+            . $this->db->getQuoter()->quoteTableName($newName);
     }
 
     /**
@@ -237,12 +237,12 @@ final class QueryBuilder extends AbstractQueryBuilder
             /**
              * {@see http://www.postgresql.org/docs/8.1/static/functions-sequence.html}
              */
-            $sequence = $this->db->quoteTableName($sequence);
-            $tableName = $this->db->quoteTableName($tableName);
+            $sequence = $this->db->getQuoter()->quoteTableName($sequence);
+            $tableName = $this->db->getQuoter()->quoteTableName($tableName);
 
             if ($value === null) {
                 $pk = $table->getPrimaryKey();
-                $key = $this->db->quoteColumnName(reset($pk));
+                $key = $this->db->getQuoter()->quoteColumnName(reset($pk));
                 $value = "(SELECT COALESCE(MAX($key),0) FROM $tableName)+1";
             } else {
                 $value = (int) $value;
@@ -287,7 +287,7 @@ final class QueryBuilder extends AbstractQueryBuilder
         $command = '';
 
         foreach ($tableNames as $tableName) {
-            $tableName = $db->quoteTableName("$schema.$tableName");
+            $tableName = $db->getQuoter()->quoteTableName("$schema.$tableName");
             $command .= "ALTER TABLE $tableName $enable TRIGGER ALL; ";
         }
 
@@ -312,7 +312,7 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function truncateTable(string $table): string
     {
-        return 'TRUNCATE TABLE ' . $this->db->quoteTableName($table) . ' RESTART IDENTITY';
+        return 'TRUNCATE TABLE ' . $this->db->getQuoter()->quoteTableName($table) . ' RESTART IDENTITY';
     }
 
     /**
@@ -331,8 +331,8 @@ final class QueryBuilder extends AbstractQueryBuilder
      */
     public function alterColumn(string $table, string $column, $type): string
     {
-        $columnName = $this->db->quoteColumnName($column);
-        $tableName = $this->db->quoteTableName($table);
+        $columnName = $this->db->getQuoter()->quoteColumnName($column);
+        $tableName = $this->db->getQuoter()->quoteTableName($table);
 
         /**
          * {@see https://github.com/yiisoft/yii2/issues/4492}
@@ -497,7 +497,7 @@ final class QueryBuilder extends AbstractQueryBuilder
 
             /** @var string $name */
             foreach ($updateNames as $name) {
-                $updateColumns[$name] = new Expression('EXCLUDED.' . $this->db->quoteColumnName($name));
+                $updateColumns[$name] = new Expression('EXCLUDED.' . $this->db->getQuoter()->quoteColumnName($name));
             }
         }
 
@@ -632,7 +632,7 @@ final class QueryBuilder extends AbstractQueryBuilder
                 }
 
                 if (is_string($value)) {
-                    $value = $schema->quoteValue($value);
+                    $value = $this->db->getQuoter()->quoteValue($value);
                 } elseif (is_float($value)) {
                     /** ensure type cast always has . as decimal separator in all locales */
                     $value = NumericHelper::normalize((string) $value);
@@ -658,10 +658,10 @@ final class QueryBuilder extends AbstractQueryBuilder
 
         /** @var string name */
         foreach ($columns as $i => $name) {
-            $columns[$i] = $schema->quoteColumnName($name);
+            $columns[$i] = $this->db->getQuoter()->quoteColumnName($name);
         }
 
-        return 'INSERT INTO ' . $schema->quoteTableName($table)
+        return 'INSERT INTO ' . $this->db->getQuoter()->quoteTableName($table)
             . ' (' . implode(', ', $columns) . ') VALUES ' . implode(', ', $values);
     }
 }

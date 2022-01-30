@@ -498,10 +498,10 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         $tableName = $table->getName();
         $tableSchema = $table->getSchemaName();
 
-        $tableName = $this->quoteValue($tableName);
+        $tableName = $this->db->getQuoter()->quoteValue($tableName);
 
         if ($tableSchema !== null) {
-            $tableSchema = $this->quoteValue($tableSchema);
+            $tableSchema = $this->db->getQuoter()->quoteValue($tableSchema);
         }
 
         /**
@@ -670,10 +670,10 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
         $schemaName = $table->getSchemaName();
         $orIdentity = '';
 
-        $tableName = $this->db->quoteValue($tableName);
+        $tableName = $this->db->getQuoter()->quoteValue($tableName);
 
         if ($schemaName !== null) {
-            $schemaName = $this->db->quoteValue($schemaName);
+            $schemaName = $this->db->getQuoter()->quoteValue($schemaName);
         }
 
         if (version_compare($this->db->getServerVersion(), '12.0', '>=')) {
@@ -926,7 +926,7 @@ final class Schema extends AbstractSchema implements ConstraintFinderInterface
             $returning = [];
             /** @var string $name */
             foreach ($returnColumns as $name) {
-                $returning[] = $this->quoteColumnName($name);
+                $returning[] = $this->db->getQuoter()->quoteColumnName($name);
             }
             $sql .= ' RETURNING ' . implode(', ', $returning);
         }
