@@ -101,38 +101,14 @@ final class QueryBuilder extends AbstractQueryBuilder
         parent::__construct($db->getQuoter(), $db->getSchema());
     }
 
-    /**
-     * Contains array of default condition classes. Extend this method, if you want to change default condition classes
-     * for the query builder.
-     *
-     * @return array
-     *
-     * See {@see conditionClasses} docs for details.
-     */
-    protected function defaultConditionClasses(): array
+    public function addDefaultValue(string $name, string $table, string $column, $value): string
     {
-        return array_merge(parent::defaultConditionClasses(), [
-            'ILIKE' => LikeCondition::class,
-            'NOT ILIKE' => LikeCondition::class,
-            'OR ILIKE' => LikeCondition::class,
-            'OR NOT ILIKE' => LikeCondition::class,
-        ]);
+        throw new NotSupportedException('Pgsql does not support adding default value constraints.');
     }
 
-    /**
-     * Contains array of default expression builders. Extend this method and override it, if you want to change default
-     * expression builders for this query builder.
-     *
-     * @return array
-     *
-     * See {@see ExpressionBuilder} docs for details.
-     */
-    protected function defaultExpressionBuilders(): array
+    public function dropDefaultValue(string $name, string $table): string
     {
-        return array_merge(parent::defaultExpressionBuilders(), [
-            ArrayExpression::class => ArrayExpressionBuilder::class,
-            JsonExpression::class => JsonExpressionBuilder::class,
-        ]);
+        throw new NotSupportedException('Pgsql does not support dropping default value constraints.');
     }
 
     /**
@@ -663,5 +639,39 @@ final class QueryBuilder extends AbstractQueryBuilder
 
         return 'INSERT INTO ' . $this->db->getQuoter()->quoteTableName($table)
             . ' (' . implode(', ', $columns) . ') VALUES ' . implode(', ', $values);
+    }
+
+    /**
+     * Contains array of default condition classes. Extend this method, if you want to change default condition classes
+     * for the query builder.
+     *
+     * @return array
+     *
+     * See {@see conditionClasses} docs for details.
+     */
+    protected function defaultConditionClasses(): array
+    {
+        return array_merge(parent::defaultConditionClasses(), [
+            'ILIKE' => LikeCondition::class,
+            'NOT ILIKE' => LikeCondition::class,
+            'OR ILIKE' => LikeCondition::class,
+            'OR NOT ILIKE' => LikeCondition::class,
+        ]);
+    }
+
+    /**
+     * Contains array of default expression builders. Extend this method and override it, if you want to change default
+     * expression builders for this query builder.
+     *
+     * @return array
+     *
+     * See {@see ExpressionBuilder} docs for details.
+     */
+    protected function defaultExpressionBuilders(): array
+    {
+        return array_merge(parent::defaultExpressionBuilders(), [
+            ArrayExpression::class => ArrayExpressionBuilder::class,
+            JsonExpression::class => JsonExpressionBuilder::class,
+        ]);
     }
 }
