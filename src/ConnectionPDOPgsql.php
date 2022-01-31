@@ -170,7 +170,7 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
 
     public function getSlavePdo(bool $fallbackToMaster = true): ?PDO
     {
-        /** @var ConnectionPDOPgssql|null $db */
+        /** @var ConnectionPDOPgsql|null $db */
         $db = $this->getSlave(false);
 
         if ($db === null) {
