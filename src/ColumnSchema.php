@@ -9,6 +9,7 @@ use Yiisoft\Db\Expression\ArrayExpression;
 use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Expression\JsonExpression;
 use Yiisoft\Db\Schema\ColumnSchema as AbstractColumnSchema;
+use Yiisoft\Db\Pgsql\PDO\SchemaPDOPgsql;
 
 use function array_walk_recursive;
 use function in_array;
@@ -56,7 +57,7 @@ final class ColumnSchema extends AbstractColumnSchema
             return new ArrayExpression($value, $this->getDbType(), $this->dimension);
         }
 
-        if (in_array($this->getDbType(), [Schema::TYPE_JSON, Schema::TYPE_JSONB], true)) {
+        if (in_array($this->getDbType(), [SchemaPDOPgsql::TYPE_JSON, SchemaPDOPgsql::TYPE_JSONB], true)) {
             return new JsonExpression($value, $this->getDbType());
         }
 
@@ -111,7 +112,7 @@ final class ColumnSchema extends AbstractColumnSchema
         }
 
         switch ($this->getType()) {
-            case Schema::TYPE_BOOLEAN:
+            case SchemaPDOPgsql::TYPE_BOOLEAN:
                 $value = is_string($value) ? strtolower($value) : $value;
 
                 return match ($value) {
@@ -119,7 +120,7 @@ final class ColumnSchema extends AbstractColumnSchema
                     'f', 'false' => false,
                     default => (bool)$value,
                 };
-            case Schema::TYPE_JSON:
+            case SchemaPDOPgsql::TYPE_JSON:
                 return json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
         }
 

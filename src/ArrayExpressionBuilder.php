@@ -14,6 +14,7 @@ use Yiisoft\Db\Expression\ExpressionBuilderInterface;
 use Yiisoft\Db\Expression\ExpressionBuilderTrait;
 use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Expression\JsonExpression;
+use Yiisoft\Db\Pgsql\PDO\SchemaPDOPgsql;
 use Yiisoft\Db\Query\Query;
 use Yiisoft\Db\Query\QueryInterface;
 
@@ -183,7 +184,7 @@ final class ArrayExpressionBuilder implements ExpressionBuilderInterface
             return $value;
         }
 
-        if (in_array($expression->getType(), [Schema::TYPE_JSON, Schema::TYPE_JSONB], true)) {
+        if (in_array($expression->getType(), [SchemaPDOPgsql::TYPE_JSON, SchemaPDOPgsql::TYPE_JSONB], true)) {
             return new JsonExpression($value);
         }
 

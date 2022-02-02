@@ -2,31 +2,35 @@
 
 declare(strict_types=1);
 
-namespace Yiisoft\Db\Pgsql;
+namespace Yiisoft\Db\Pgsql\PDO;
 
 use PDO;
 use PDOException;
 use Psr\Log\LogLevel;
 use Yiisoft\Db\Cache\QueryCache;
 use Yiisoft\Db\Cache\SchemaCache;
-use Yiisoft\Db\Command\Command;
+use Yiisoft\Db\Command\CommandInterface;
 use Yiisoft\Db\Connection\Connection;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Driver\PDODriver;
 use Yiisoft\Db\Driver\PDOInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
+use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\Quoter;
+use Yiisoft\Db\Schema\QuoterInterface;
+use Yiisoft\Db\Schema\SchemaInterface;
 
 /**
  * The class Connection represents a connection to a database via [PDO](https://secure.php.net/manual/en/book.pdo.php).
  */
 final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterface
 {
+    private ?CommandInterface $command = null;
     private ?PDO $pdo = null;
-    private ?QueryBuilder $queryBuilder = null;
-    private ?Quoter $quoter = null;
-    private ?Schema $schema = null;
+    private ?QueryBuilderInterface $queryBuilder = null;
+    private ?QuoterInterface $quoter = null;
+    private ?SchemaInterface $schema = null;
 
     public function __construct(
         private PDODriver $driver,
@@ -71,13 +75,19 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
         return array_keys($fields);
     }
 
-    public function createCommand(?string $sql = null, array $params = []): Command
+    public function createCommand(?string $sql = null, array $params = []): CommandInterface
     {
-        if ($sql !== null) {
-            $sql = $this->getQuoter()->quoteSql($sql);
-        }
+        $command = new CommandPDOPgsql(
+            $this,
+            $this->getQueryBuilder(),
+            $this->queryCache,
+            $this->getQuoter(),
+            $this->getSchema()
+        );
 
-        $command = new Command($this, $this->queryCache, $sql);
+        if ($sql !== null) {
+            $command->setSql($sql);
+        }
 
         if ($this->logger !== null) {
             $command->setLogger($this->logger);
@@ -141,16 +151,16 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
         return $this->pdo;
     }
 
-    public function getQueryBuilder(): QueryBuilder
+    public function getQueryBuilder(): QueryBuilderInterface
     {
         if ($this->queryBuilder === null) {
-            $this->queryBuilder = new QueryBuilder($this);
+            $this->queryBuilder = new QueryBuilderPDOPgsql($this);
         }
 
         return $this->queryBuilder;
     }
 
-    public function getQuoter(): Quoter
+    public function getQuoter(): QuoterInterface
     {
         if ($this->quoter === null) {
             $this->quoter = new Quoter('"', '"', $this->getTablePrefix());
@@ -159,10 +169,10 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
         return $this->quoter;
     }
 
-    public function getSchema(): Schema
+    public function getSchema(): SchemaInterface
     {
         if ($this->schema === null) {
-            $this->schema = new Schema($this, $this->schemaCache);
+            $this->schema = new SchemaPDOPgsql($this, $this->schemaCache);
         }
 
         return $this->schema;

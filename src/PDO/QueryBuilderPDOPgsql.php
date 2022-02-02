@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Yiisoft\Db\Pgsql;
+namespace Yiisoft\Db\Pgsql\PDO;
 
 use Generator;
 use JsonException;
@@ -17,6 +17,8 @@ use Yiisoft\Db\Expression\Expression;
 use Yiisoft\Db\Expression\ExpressionInterface;
 use Yiisoft\Db\Expression\JsonExpression;
 use Yiisoft\Db\Pdo\PdoValue;
+use Yiisoft\Db\Pgsql\ArrayExpressionBuilder;
+use Yiisoft\Db\Pgsql\JsonExpressionBuilder;
 use Yiisoft\Db\Query\Conditions\LikeCondition;
 use Yiisoft\Db\Query\Query;
 use Yiisoft\Db\Query\QueryBuilder as AbstractQueryBuilder;
@@ -39,7 +41,7 @@ use function reset;
 /**
  * The class QueryBuilder is the query builder for PostgresSQL databases.
  */
-final class QueryBuilder extends AbstractQueryBuilder
+final class QueryBuilderPDOPgsql extends AbstractQueryBuilder
 {
     /**
      * Defines a UNIQUE index for {@see createIndex()}.

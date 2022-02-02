@@ -16,8 +16,9 @@ use Yiisoft\Db\Expression\ArrayExpression;
 use Yiisoft\Db\Expression\Expression;
 use Yiisoft\Db\Expression\JsonExpression;
 use Yiisoft\Db\Pgsql\ColumnSchema;
-use Yiisoft\Db\Pgsql\QueryBuilder;
+use Yiisoft\Db\Pgsql\PDO\QueryBuilderPDOPgsql;
 use Yiisoft\Db\Query\Query;
+use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\TestSupport\TestQueryBuilderTrait;
 use Yiisoft\Db\TestSupport\TraversableObject;
 
@@ -34,11 +35,11 @@ final class QueryBuilderTest extends TestCase
     use TestQueryBuilderTrait;
 
     /**
-     * @return QueryBuilder
+     * @return QueryBuilderInterface
      */
-    protected function getQueryBuilder(ConnectionInterface $db): QueryBuilder
+    protected function getQueryBuilder(ConnectionInterface $db): QueryBuilderInterface
     {
-        return new QueryBuilder($db);
+        return new QueryBuilderPDOPgsql($db);
     }
 
     public function testAlterColumn(): void
@@ -193,18 +194,6 @@ final class QueryBuilderTest extends TestCase
         $expected = 'DROP INDEX {{%schema.index}}';
         $sql = $qb->dropIndex('index', '{{%schema.table}}');
         $this->assertEquals($expected, $sql);
-    }
-
-    /**
-     * @dataProvider addDropChecksProviderTrait
-     *
-     * @param string $sql
-     * @param Closure $builder
-     */
-    public function testAddDropCheck(string $sql, Closure $builder): void
-    {
-        $db = $this->getConnection();
-        $this->assertSame($db->getQuoter()->quoteSql($sql), $builder($this->getQueryBuilder($db)));
     }
 
     /**
