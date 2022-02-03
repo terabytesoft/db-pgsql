@@ -12,11 +12,11 @@ use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Constraint\CheckConstraint;
 use Yiisoft\Db\Constraint\Constraint;
-use Yiisoft\Db\Constraint\ConstraintFinderTrait;
 use Yiisoft\Db\Constraint\DefaultValueConstraint;
 use Yiisoft\Db\Constraint\ForeignKeyConstraint;
 use Yiisoft\Db\Constraint\IndexConstraint;
 use Yiisoft\Db\Exception\Exception;
+use Yiisoft\Db\Exception\InvalidCallException;
 use Yiisoft\Db\Exception\InvalidConfigException;
 use Yiisoft\Db\Exception\NotSupportedException;
 use Yiisoft\Db\Expression\Expression;
@@ -179,7 +179,7 @@ final class SchemaPDOPgsql extends Schema
      * @var string|string[] character used to quote schema, table, etc. names. An array of 2 characters can be used in
      * case starting and ending characters are different.
      */
-    protected $tableQuoteCharacter = '"';
+    protected string|array $tableQuoteCharacter = '"';
 
     /**
      * Resolves the table name and schema name (if any).
@@ -271,7 +271,7 @@ final class SchemaPDOPgsql extends Schema
      *
      * @param string $name table name.
      *
-     * @throws Exception|InvalidConfigException
+     * @throws Exception|InvalidConfigException|Throwable
      *
      * @return TableSchema|null DBMS-dependent table metadata, `null` if the table does not exist.
      */
@@ -294,7 +294,7 @@ final class SchemaPDOPgsql extends Schema
      *
      * @param string $tableName table name.
      *
-     * @throws Exception|InvalidConfigException
+     * @throws Exception|InvalidConfigException|Throwable
      *
      * @return Constraint|null primary key for the given table, `null` if the table has no primary key.
      */
@@ -310,7 +310,7 @@ final class SchemaPDOPgsql extends Schema
      *
      * @param string $tableName table name.
      *
-     * @throws Exception|InvalidConfigException
+     * @throws Exception|InvalidConfigException|Throwable
      *
      * @return array|ForeignKeyConstraint[] foreign keys for the given table.
      */
@@ -358,7 +358,7 @@ final class SchemaPDOPgsql extends Schema
             ':tableName' => $resolvedName->getName(),
         ])->queryAll();
 
-        /** @var array<array-key, array<array-key, mixed>> @indexes */
+        /** @var array[] @indexes */
         $indexes = $this->normalizePdoRowKeyCase($indexes, true);
         $indexes = ArrayHelper::index($indexes, null, 'name');
         $result = [];
@@ -393,7 +393,7 @@ final class SchemaPDOPgsql extends Schema
      *
      * @param string $tableName table name.
      *
-     * @throws Exception|InvalidConfigException
+     * @throws Exception|InvalidConfigException|Throwable
      *
      * @return array|Constraint[] unique constraints for the given table.
      */
@@ -409,7 +409,7 @@ final class SchemaPDOPgsql extends Schema
      *
      * @param string $tableName table name.
      *
-     * @throws Exception|InvalidConfigException
+     * @throws Exception|InvalidConfigException|Throwable
      *
      * @return array|CheckConstraint[] check constraints for the given table.
      */
@@ -432,16 +432,6 @@ final class SchemaPDOPgsql extends Schema
     protected function loadTableDefaultValues(string $tableName): array
     {
         throw new NotSupportedException('PostgreSQL does not support default value constraints.');
-    }
-
-    /**
-     * Creates a query builder for the PostgreSQL database.
-     *
-     * @return QueryBuilder query builder instance
-     */
-    public function createQueryBuilder(): QueryBuilder
-    {
-        return new QueryBuilder($this->db);
     }
 
     /**
@@ -471,6 +461,9 @@ final class SchemaPDOPgsql extends Schema
         $table->fullName($name);
     }
 
+    /**
+     * @throws Exception|InvalidConfigException|Throwable
+     */
     protected function findViewNames(string $schema = ''): array
     {
         if ($schema === '') {
@@ -531,8 +524,8 @@ final class SchemaPDOPgsql extends Schema
             left join pg_attribute fa on fa.attrelid=ct.confrelid and fa.attnum = ct.confkey[ct.s]
         WHERE
             ct.contype='f'
-            and c.relname={$tableName}
-            and ns.nspname={$tableSchema}
+            and c.relname=$tableName
+            and ns.nspname=$tableSchema
         ORDER BY
             fns.nspname, fc.relname, a.attnum
         SQL;
@@ -542,7 +535,6 @@ final class SchemaPDOPgsql extends Schema
 
         $slavePdo = $this->db->getSlavePdo();
 
-        /** @var FindConstraintArray $constraint */
         foreach ($this->db->createCommand($sql)->queryAll() as $constraint) {
             if ($slavePdo !== null && $slavePdo->getAttribute(PDO::ATTR_CASE) === PDO::CASE_UPPER) {
                 $constraint = array_change_key_case($constraint, CASE_LOWER);
@@ -694,7 +686,7 @@ final class SchemaPDOPgsql extends Schema
             a.atttypmod AS modifier,
             a.attnotnull = false AS is_nullable,
             CAST(pg_get_expr(ad.adbin, ad.adrelid) AS varchar) AS column_default,
-            coalesce(pg_get_expr(ad.adbin, ad.adrelid) ~ 'nextval',false) {$orIdentity} AS is_autoinc,
+            coalesce(pg_get_expr(ad.adbin, ad.adrelid) ~ 'nextval',false) $orIdentity AS is_autoinc,
             pg_get_serial_sequence(quote_ident(d.nspname) || '.' || quote_ident(c.relname), a.attname)
             AS sequence_name,
             CASE WHEN COALESCE(td.typtype, tb.typtype, t.typtype) = 'e'::char
@@ -749,8 +741,8 @@ final class SchemaPDOPgsql extends Schema
                 LEFT JOIN pg_constraint ct ON ct.conrelid = c.oid AND ct.contype = 'p'
             WHERE
                 a.attnum > 0 AND t.typname != '' AND NOT a.attisdropped
-                AND c.relname = {$tableName}
-                AND d.nspname = {$schemaName}
+                AND c.relname = $tableName
+                AND d.nspname = $schemaName
             ORDER BY
                 a.attnum;
         SQL;
@@ -763,7 +755,7 @@ final class SchemaPDOPgsql extends Schema
             return false;
         }
 
-        /** @var array<array-key, mixed> $column */
+        /** @var array $column */
         foreach ($columns as $column) {
             if ($slavePdo !== null && $slavePdo->getAttribute(PDO::ATTR_CASE) === PDO::CASE_UPPER) {
                 $column = array_change_key_case($column, CASE_LOWER);
@@ -772,8 +764,6 @@ final class SchemaPDOPgsql extends Schema
             /** @psalm-var ColumnArray $column */
             $loadColumnSchema = $this->loadColumnSchema($column);
             $table->columns($loadColumnSchema->getName(), $loadColumnSchema);
-
-            /** @var mixed $defaultValue */
             $defaultValue = $loadColumnSchema->getDefaultValue();
 
             if ($loadColumnSchema->isPrimaryKey()) {
@@ -872,8 +862,6 @@ final class SchemaPDOPgsql extends Schema
         /**
          * pg_get_serial_sequence() doesn't track DEFAULT value change. GENERATED BY IDENTITY columns always have null
          * default value.
-         *
-         * @var mixed $defaultValue
          */
         $defaultValue = $column->getDefaultValue();
         $sequenceName = $info['sequence_name'] ?? null;
@@ -913,7 +901,7 @@ final class SchemaPDOPgsql extends Schema
      *
      * @return array|false primary key values or false if the command fails.
      */
-    public function insert(string $table, array $columns)
+    public function insert(string $table, array $columns): bool|array
     {
         $params = [];
         $returnColumns = [];
@@ -952,15 +940,12 @@ final class SchemaPDOPgsql extends Schema
      * - uniques
      * - checks
      *
+     * @return array|Constraint|null (CheckConstraint|Constraint|ForeignKeyConstraint)[]|Constraint|null constraints.
+     *
      * @throws Exception|InvalidConfigException|Throwable
-     *
-     * @return (CheckConstraint|Constraint|ForeignKeyConstraint)[]|Constraint|null constraints.
-     *
-     * @psalm-return Constraint|list<CheckConstraint|Constraint|ForeignKeyConstraint>|null
      */
-    private function loadTableConstraints(string $tableName, string $returnType)
+    private function loadTableConstraints(string $tableName, string $returnType): array|Constraint|null
     {
-        /** @var string $sql */
         $sql = <<<SQL
         SELECT
             "c"."conname" AS "name",
@@ -1101,7 +1086,7 @@ final class SchemaPDOPgsql extends Schema
      *
      * @return ColumnSchemaBuilder column schema builder instance
      */
-    public function createColumnSchemaBuilder(string $type, $length = null): ColumnSchemaBuilder
+    public function createColumnSchemaBuilder(string $type, array|int|string $length = null): ColumnSchemaBuilder
     {
         return new ColumnSchemaBuilder($type, $length);
     }
@@ -1128,7 +1113,7 @@ final class SchemaPDOPgsql extends Schema
      */
     public function getRawTableName(string $name): string
     {
-        if (strpos($name, '{{') !== false) {
+        if (str_contains($name, '{{')) {
             $name = preg_replace('/{{(.*?)}}/', '\1', $name);
 
             return str_replace('%', $this->db->getTablePrefix(), $name);
@@ -1195,7 +1180,7 @@ final class SchemaPDOPgsql extends Schema
     }
 
     /**
-     * Changes row's array key case to lower if PDO's one is set to uppercase.
+     * Changes row's array key case to lower if PDO one is set to uppercase.
      *
      * @param array $row row's array or an array of row's arrays.
      * @param bool $multiple whether multiple rows or a single row passed.
