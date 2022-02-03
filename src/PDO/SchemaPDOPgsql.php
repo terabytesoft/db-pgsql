@@ -1252,4 +1252,12 @@ final class SchemaPDOPgsql extends Schema
     {
         $this->db->createCommand("SAVEPOINT $name")->execute();
     }
+
+    /**
+     * @throws Exception|InvalidConfigException|Throwable
+     */
+    public function releaseSavepoint(string $name): void
+    {
+        $this->db->createCommand("RELEASE SAVEPOINT $name")->execute();
+    }
 }
