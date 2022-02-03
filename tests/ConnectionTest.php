@@ -6,11 +6,11 @@ namespace Yiisoft\Db\Pgsql\Tests;
 
 use PDO;
 use Yiisoft\Cache\CacheKeyNormalizer;
+use Yiisoft\Db\Connection\ConnectionInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Exception\InvalidConfigException;
-use Yiisoft\Db\Pgsql\Connection;
+use Yiisoft\Db\Pgsql\PDO\TransactionPDOPgsql;
 use Yiisoft\Db\TestSupport\TestConnectionTrait;
-use Yiisoft\Db\Transaction\Transaction;
 
 /**
  * @group pgsql
@@ -128,28 +128,6 @@ final class ConnectionTest extends TestCase
         $this->assertEquals('"table"."column"', $quoter->quoteSql('{{%table}}."column"'));
     }
 
-    public function testTransactionIsolation(): void
-    {
-        $db = $this->getConnection(true);
-        $transaction = $db->beginTransaction();
-        $transaction->setIsolationLevel(Transaction::READ_UNCOMMITTED);
-        $transaction->commit();
-        $transaction = $db->beginTransaction();
-        $transaction->setIsolationLevel(Transaction::READ_COMMITTED);
-        $transaction->commit();
-        $transaction = $db->beginTransaction();
-        $transaction->setIsolationLevel(Transaction::REPEATABLE_READ);
-        $transaction->commit();
-        $transaction = $db->beginTransaction();
-        $transaction->setIsolationLevel(Transaction::SERIALIZABLE);
-        $transaction->commit();
-        $transaction = $db->beginTransaction();
-        $transaction->setIsolationLevel(Transaction::SERIALIZABLE . ' READ ONLY DEFERRABLE');
-        $transaction->commit();
-        /* should not be any exception so far */
-        $this->assertTrue(true);
-    }
-
     /**
      * Test whether slave connection is recovered when call `getSlavePdo()` after `close()`.
      *
@@ -247,5 +225,47 @@ final class ConnectionTest extends TestCase
         $this->assertFalse($this->cache->psr()->has($cacheKey), 'Caching is disabled');
 
         $db->close();
+    }
+
+    public function testTransactionIsolation(): void
+    {
+        $db = $this->getConnection(true);
+
+        $transaction = $db->beginTransaction();
+        $transaction->setIsolationLevel(TransactionPDOPgsql::READ_UNCOMMITTED);
+        $transaction->commit();
+        $transaction = $db->beginTransaction();
+        $transaction->setIsolationLevel(TransactionPDOPgsql::READ_COMMITTED);
+        $transaction->commit();
+        $transaction = $db->beginTransaction();
+        $transaction->setIsolationLevel(TransactionPDOPgsql::REPEATABLE_READ);
+        $transaction->commit();
+        $transaction = $db->beginTransaction();
+        $transaction->setIsolationLevel(TransactionPDOPgsql::SERIALIZABLE);
+        $transaction->commit();
+        $transaction = $db->beginTransaction();
+        $transaction->setIsolationLevel(TransactionPDOPgsql::SERIALIZABLE . ' READ ONLY DEFERRABLE');
+        $transaction->commit();
+
+        /* should not be any exception so far */
+        $this->assertTrue(true);
+    }
+
+    public function testTransactionShortcutCustom(): void
+    {
+        $db = $this->getConnection(true);
+
+        $result = $db->transaction(static function (ConnectionInterface $db) {
+            $db->createCommand()->insert('profile', ['description' => 'test transaction shortcut'])->execute();
+            return true;
+        }, TransactionPDOPgsql::READ_UNCOMMITTED);
+
+        $this->assertTrue($result, 'transaction shortcut valid value should be returned from callback');
+
+        $profilesCount = $db->createCommand(
+            "SELECT COUNT(*) FROM profile WHERE description = 'test transaction shortcut';"
+        )->queryScalar();
+
+        $this->assertEquals(1, $profilesCount, 'profile should be inserted in transaction shortcut');
     }
 }

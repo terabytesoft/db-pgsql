@@ -21,7 +21,7 @@ use Yiisoft\Db\Pgsql\ArrayExpressionBuilder;
 use Yiisoft\Db\Pgsql\JsonExpressionBuilder;
 use Yiisoft\Db\Query\Conditions\LikeCondition;
 use Yiisoft\Db\Query\Query;
-use Yiisoft\Db\Query\QueryBuilder as AbstractQueryBuilder;
+use Yiisoft\Db\Query\QueryBuilder;
 use Yiisoft\Db\Schema\ColumnSchemaBuilder;
 use Yiisoft\Db\Schema\Schema;
 use Yiisoft\Strings\NumericHelper;
@@ -41,7 +41,7 @@ use function reset;
 /**
  * The class QueryBuilder is the query builder for PostgresSQL databases.
  */
-final class QueryBuilderPDOPgsql extends AbstractQueryBuilder
+final class QueryBuilderPDOPgsql extends QueryBuilder
 {
     /**
      * Defines a UNIQUE index for {@see createIndex()}.

@@ -12,7 +12,6 @@ use Yiisoft\Db\Cache\SchemaCache;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Constraint\CheckConstraint;
 use Yiisoft\Db\Constraint\Constraint;
-use Yiisoft\Db\Constraint\ConstraintFinderInterface;
 use Yiisoft\Db\Constraint\ConstraintFinderTrait;
 use Yiisoft\Db\Constraint\DefaultValueConstraint;
 use Yiisoft\Db\Constraint\ForeignKeyConstraint;
@@ -24,7 +23,7 @@ use Yiisoft\Db\Expression\Expression;
 use Yiisoft\Db\Pgsql\ColumnSchema;
 use Yiisoft\Db\Pgsql\TableSchema;
 use Yiisoft\Db\Schema\ColumnSchemaBuilder;
-use Yiisoft\Db\Schema\Schema as AbstractSchema;
+use Yiisoft\Db\Schema\Schema;
 use Yiisoft\Db\View\ViewFinderTrait;
 
 use function array_change_key_case;
@@ -87,9 +86,8 @@ use function substr;
  *   foreign_column_name: string,
  * }
  */
-final class SchemaPDOPgsql extends AbstractSchema implements ConstraintFinderInterface
+final class SchemaPDOPgsql extends Schema
 {
-    use ConstraintFinderTrait;
     use ViewFinderTrait;
 
     public const TYPE_JSONB = 'jsonb';

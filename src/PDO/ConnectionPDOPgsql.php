@@ -20,6 +20,7 @@ use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\Quoter;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
+use Yiisoft\Db\Transaction\TransactionInterface;
 
 /**
  * The class Connection represents a connection to a database via [PDO](https://secure.php.net/manual/en/book.pdo.php).
@@ -98,6 +99,11 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
         }
 
         return $command->bindValues($params);
+    }
+
+    public function createTransaction(): TransactionInterface
+    {
+        return new TransactionPDOPgsql($this);
     }
 
     public function close(): void
