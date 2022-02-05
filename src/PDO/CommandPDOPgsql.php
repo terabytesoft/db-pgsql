@@ -10,6 +10,7 @@ use Yiisoft\Db\Command\Command;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Pgsql\DDLCommand;
+use Yiisoft\Db\Pgsql\DMLCommand;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
@@ -29,6 +30,11 @@ final class CommandPDOPgsql extends Command
     public function getDDLCommand(): DDLCommand
     {
         return new DDLCommand($this->quoter);
+    }
+
+    public function getDMLCommand(): DMLCommand
+    {
+        return new DMLCommand($this->quoter, $this->schema);
     }
 
     public function prepare(?bool $forRead = null): void
