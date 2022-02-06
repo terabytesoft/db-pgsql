@@ -905,7 +905,8 @@ final class SchemaPDOPgsql extends Schema
     {
         $params = [];
         $returnColumns = [];
-        $sql = $this->db->getQueryBuilder()->insert($table, $columns, $params);
+        $sql = $this->db->createCommand()->getDMLCommand()->insert($table, $columns, $params);
+
         $tableSchema = $this->getTableSchema($table);
 
         if ($tableSchema !== null) {
