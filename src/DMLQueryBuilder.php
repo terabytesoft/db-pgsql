@@ -5,22 +5,89 @@ declare(strict_types=1);
 namespace Yiisoft\Db\Pgsql;
 
 use InvalidArgumentException;
-use Yiisoft\Db\Command\DMLCommand as AbstractDMLCommand;
 use Yiisoft\Db\Exception\Exception;
 use Yiisoft\Db\Expression\Expression;
+use Yiisoft\Db\Expression\ExpressionInterface;
+use Yiisoft\Db\Query\DMLQueryBuilder as AbstractDMLQueryBuilder;
 use Yiisoft\Db\Query\Query;
 use Yiisoft\Db\Query\QueryBuilderInterface;
-use Yiisoft\Db\Schema\QuoterInterface;
-use Yiisoft\Db\Schema\SchemaInterface;
+use Yiisoft\Strings\NumericHelper;
 
-final class DMLCommand extends AbstractDMLCommand
+final class DMLQueryBuilder extends AbstractDMLQueryBuilder
 {
-    public function __construct(
-        private QueryBuilderInterface $queryBuilder,
-        private QuoterInterface $quoter,
-        private SchemaInterface $schema
-    ) {
-        parent::__construct($queryBuilder, $quoter);
+    public function __construct(private QueryBuilderInterface $queryBuilder)
+    {
+        parent::__construct($queryBuilder);
+    }
+
+    public function batchInsert(string $table, array $columns, iterable|Generator $rows, array &$params = []): string
+    {
+        if (empty($rows)) {
+            return '';
+        }
+
+        /**
+         * @var array<array-key, object> $columnSchemas
+         */
+        $columnSchemas = [];
+        $schema = $this->queryBuilder->schema();
+
+        if (($tableSchema = $schema->getTableSchema($table)) !== null) {
+            $columnSchemas = $tableSchema->getColumns();
+        }
+
+        $values = [];
+
+        /**
+         * @var array $row
+         */
+        foreach ($rows as $row) {
+            $vs = [];
+            /**
+             *  @var int $i
+             *  @var mixed $value
+             */
+            foreach ($row as $i => $value) {
+                if (isset($columns[$i], $columnSchemas[$columns[$i]])) {
+                    /**
+                     * @var bool|ExpressionInterface|float|int|string|null $value
+                     */
+                    $value = $columnSchemas[$columns[$i]]->dbTypecast($value);
+                }
+
+                if (is_string($value)) {
+                    $value = $this->queryBuilder->quoter()->quoteValue($value);
+                } elseif (is_float($value)) {
+                    /** ensure type cast always has . as decimal separator in all locales */
+                    $value = NumericHelper::normalize((string) $value);
+                } elseif ($value === true) {
+                    $value = 'TRUE';
+                } elseif ($value === false) {
+                    $value = 'FALSE';
+                } elseif ($value === null) {
+                    $value = 'NULL';
+                } elseif ($value instanceof ExpressionInterface) {
+                    $value = $this->queryBuilder->buildExpression($value, $params);
+                }
+
+                /** @var bool|ExpressionInterface|float|int|string|null $value */
+                $vs[] = $value;
+            }
+            $values[] = '(' . implode(', ', $vs) . ')';
+        }
+
+        if (empty($values)) {
+            return '';
+        }
+
+        /** @var string name */
+        foreach ($columns as $i => $name) {
+            $columns[$i] = $this->queryBuilder->quoter()->quoteColumnName($name);
+        }
+
+        return 'INSERT INTO '
+            . $this->queryBuilder->quoter()->quoteTableName($table)
+            . ' (' . implode(', ', $columns) . ') VALUES ' . implode(', ', $values);
     }
 
     /**
@@ -98,7 +165,7 @@ final class DMLCommand extends AbstractDMLCommand
 
             /** @var string $name */
             foreach ($updateNames as $name) {
-                $updateColumns[$name] = new Expression('EXCLUDED.' . $this->quoter->quoteColumnName($name));
+                $updateColumns[$name] = new Expression('EXCLUDED.' . $this->queryBuilder->quoter()->quoteColumnName($name));
             }
         }
 
@@ -126,18 +193,18 @@ final class DMLCommand extends AbstractDMLCommand
      */
     public function resetSequence(string $tableName, $value = null): string
     {
-        $table = $this->schema->getTableSchema($tableName);
+        $table = $this->queryBuilder->schema()->getTableSchema($tableName);
 
         if ($table !== null && ($sequence = $table->getSequenceName()) !== null) {
             /**
              * {@see http://www.postgresql.org/docs/8.1/static/functions-sequence.html}
              */
-            $sequence = $this->quoter->quoteTableName($sequence);
-            $tableName = $this->quoter->quoteTableName($tableName);
+            $sequence = $this->queryBuilder->quoter()->quoteTableName($sequence);
+            $tableName = $this->queryBuilder->quoter()->quoteTableName($tableName);
 
             if ($value === null) {
                 $pk = $table->getPrimaryKey();
-                $key = $this->quoter->quoteColumnName(reset($pk));
+                $key = $this->queryBuilder->quoter()->quoteColumnName(reset($pk));
                 $value = "(SELECT COALESCE(MAX($key),0) FROM $tableName)+1";
             } else {
                 $value = (int) $value;

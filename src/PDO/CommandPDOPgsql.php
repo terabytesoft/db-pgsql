@@ -9,32 +9,20 @@ use Yiisoft\Db\Cache\QueryCache;
 use Yiisoft\Db\Command\Command;
 use Yiisoft\Db\Connection\ConnectionPDOInterface;
 use Yiisoft\Db\Exception\Exception;
-use Yiisoft\Db\Pgsql\DDLCommand;
-use Yiisoft\Db\Pgsql\DMLCommand;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 use Yiisoft\Db\Schema\QuoterInterface;
 use Yiisoft\Db\Schema\SchemaInterface;
 
 final class CommandPDOPgsql extends Command
 {
-    public function __construct(
-        private ConnectionPDOInterface $db,
-        private QueryBuilderInterface $queryBuilder,
-        QueryCache $queryCache,
-        private QuoterInterface $quoter,
-        private SchemaInterface $schema
-    ) {
-        parent::__construct($queryBuilder, $queryCache, $quoter, $schema);
+    public function __construct(private ConnectionPDOInterface $db, QueryCache $queryCache)
+    {
+        parent::__construct($queryCache);
     }
 
-    public function getDDLCommand(): DDLCommand
+    public function queryBuilder(): QueryBuilderInterface
     {
-        return new DDLCommand($this->quoter);
-    }
-
-    public function getDMLCommand(): DMLCommand
-    {
-        return new DMLCommand($this->queryBuilder, $this->quoter, $this->schema);
+        return $this->db->getQueryBuilder();
     }
 
     public function prepare(?bool $forRead = null): void
@@ -52,7 +40,7 @@ final class CommandPDOPgsql extends Command
             $forRead = false;
         }
 
-        if ($forRead || ($forRead === null && $this->schema->isReadQuery($sql))) {
+        if ($forRead || ($forRead === null && $this->db->getSchema()->isReadQuery($sql))) {
             $pdo = $this->db->getSlavePdo();
         } else {
             $pdo = $this->db->getMasterPdo();
@@ -99,7 +87,7 @@ final class CommandPDOPgsql extends Command
                 break;
             } catch (\Exception $e) {
                 $rawSql = $rawSql ?: $this->getRawSql();
-                $e = $this->schema->convertException($e, $rawSql);
+                $e = $this->db->getSchema()->convertException($e, $rawSql);
 
                 if ($this->retryHandler === null || !($this->retryHandler)($e, $attempt)) {
                     throw $e;

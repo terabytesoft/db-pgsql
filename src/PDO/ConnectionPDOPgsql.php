@@ -77,13 +77,7 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
 
     public function createCommand(?string $sql = null, array $params = []): CommandInterface
     {
-        $command = new CommandPDOPgsql(
-            $this,
-            $this->getQueryBuilder(),
-            $this->queryCache,
-            $this->getQuoter(),
-            $this->getSchema()
-        );
+        $command = new CommandPDOPgsql($this, $this->queryCache);
 
         if ($sql !== null) {
             $command->setSql($sql);
@@ -159,7 +153,11 @@ final class ConnectionPDOPgsql extends Connection implements ConnectionPDOInterf
     public function getQueryBuilder(): QueryBuilderInterface
     {
         if ($this->queryBuilder === null) {
-            $this->queryBuilder = new QueryBuilderPDOPgsql($this);
+            $this->queryBuilder = new QueryBuilderPDOPgsql(
+                $this->createCommand(),
+                $this->getQuoter(),
+                $this->getSchema(),
+            );
         }
 
         return $this->queryBuilder;
