@@ -24,7 +24,7 @@ use Yiisoft\Db\Pgsql\ColumnSchema;
 use Yiisoft\Db\Pgsql\TableSchema;
 use Yiisoft\Db\Schema\ColumnSchemaBuilder;
 use Yiisoft\Db\Schema\Schema;
-use Yiisoft\Db\View\ViewFinderTrait;
+use Yiisoft\Db\View\ViewInterface;
 
 use function array_change_key_case;
 use function array_merge;
@@ -86,10 +86,8 @@ use function substr;
  *   foreign_column_name: string,
  * }
  */
-final class SchemaPDOPgsql extends Schema
+final class SchemaPDOPgsql extends Schema implements ViewInterface
 {
-    use ViewFinderTrait;
-
     public const TYPE_JSONB = 'jsonb';
 
     /**
@@ -164,6 +162,7 @@ final class SchemaPDOPgsql extends Schema
     ];
 
     private ?string $serverVersion = null;
+    private array $viewNames = [];
 
     public function __construct(private ConnectionPDOInterface $db, SchemaCache $schemaCache)
     {
@@ -464,7 +463,7 @@ final class SchemaPDOPgsql extends Schema
     /**
      * @throws Exception|InvalidConfigException|Throwable
      */
-    protected function findViewNames(string $schema = ''): array
+    public function findViewNames(string $schema = ''): array
     {
         if ($schema === '') {
             $schema = $this->defaultSchema;
@@ -1245,5 +1244,14 @@ final class SchemaPDOPgsql extends Schema
     public function releaseSavepoint(string $name): void
     {
         $this->db->createCommand("RELEASE SAVEPOINT $name")->execute();
+    }
+
+    public function getViewNames(string $schema = '', bool $refresh = false): array
+    {
+        if (!isset($this->viewNames[$schema]) || $refresh) {
+            $this->viewNames[$schema] = $this->findViewNames($schema);
+        }
+
+        return $this->viewNames[$schema];
     }
 }

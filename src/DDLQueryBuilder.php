@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Yiisoft\Db\Pgsql;
 
+use Yiisoft\Db\Pgsql\PDO\SchemaPDOPgsql;
 use Yiisoft\Db\Query\DDLQueryBuilder as AbstractDDLQueryBuilder;
 use Yiisoft\Db\Query\QueryBuilderInterface;
 
@@ -67,6 +68,7 @@ final class DDLQueryBuilder extends AbstractDDLQueryBuilder
 
     public function checkIntegrity(string $schema = '', string $table = '', bool $check = true): string
     {
+        /** @var SchemaPDOPgsql */
         $schemaInstance = $this->queryBuilder->schema();
         $enable = $check ? 'ENABLE' : 'DISABLE';
         $schema = $schema ?: $schemaInstance->getDefaultSchema();
